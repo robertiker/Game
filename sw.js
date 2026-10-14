@@ -1,4 +1,4 @@
-const CACHE_NAME = 'juego-3d-v13';
+const CACHE_NAME = 'juego-3d-v14';
 const urlsToCache = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
