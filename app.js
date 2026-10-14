@@ -4,15 +4,23 @@ const TEX = {
     normal:    'texture_pbr_20250901_normal.png',
     roughness: 'texture_pbr_20250901_roughness.png'
 };
+
+// Nombres de tus nuevas fotos reales para el fondo (ajusta la extension .jpg o .png segun corresponda)
+const PARALLAX_IMAGES = {
+    sky: 'cielo.jpg',
+    city: 'ciudad.jpg',
+    foreground: 'barandilla.jpg'
+};
+
 const MATERIAL_MODE = 'basic';
 const SPEED = 3.0;
 const CHAR_HEIGHT = 1.8;
-const GRAVITY = 18;          // Fuerza de gravedad
-const JUMP_SPEED = 6;        // Impulso del salto
-const JUMP_ANIM_SPEED = 1.5; // Velocidad de la animacion de salto
-const CAM_DIST = 4.5;        // Distancia detras del personaje
-const CAM_HEIGHT = 1.8;      // Altura de la camara
-const CAM_LOOK = 1.0;        // Altura del punto al que mira
+const GRAVITY = 18;          
+const JUMP_SPEED = 6;        
+const JUMP_ANIM_SPEED = 1.5; 
+const CAM_DIST = 4.5;        
+const CAM_HEIGHT = 1.8;      
+const CAM_LOOK = 1.0;        
 
 // Mostrar cualquier error en pantalla
 function showError(msg) {
@@ -58,159 +66,43 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// ===== Generador de Texturas Procedurales para las 3 Capas =====
-
-// 1. Capa Fondo: Cielo y nubes
-function createSkyTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-
-    const grad = ctx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, '#0d47a1');
-    grad.addColorStop(0.5, '#42a5f5');
-    grad.addColorStop(1, '#e3f2fd');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 1024, 512);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-    const clouds = [
-        [120, 260, 45], [165, 245, 60], [215, 260, 45],
-        [420, 190, 50], [470, 175, 65], [525, 195, 50],
-        [750, 250, 55], [810, 235, 70], [870, 255, 50],
-        [280, 330, 35], [315, 325, 45], [620, 310, 40], [660, 305, 50]
-    ];
-    clouds.forEach(([x, y, r]) => {
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.repeat.set(3, 1);
-    tex.encoding = THREE.sRGBEncoding;
-    return tex;
-}
-
-// 2. Capa Media: Ciudad de rascacielos
-function createCityTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-
-    ctx.clearRect(0, 0, 1024, 512);
-
-    const buildings = [
-        [0,   180, 95,  '#263238'],
-        [85,  110, 85,  '#37474f'],
-        [160, 230, 90,  '#455a64'],
-        [240, 80,  110, '#1c262b'],
-        [340, 190, 85,  '#37474f'],
-        [415, 130, 100, '#263238'],
-        [505, 240, 95,  '#455a64'],
-        [590, 70,  115, '#1c262b'],
-        [695, 170, 90,  '#37474f'],
-        [775, 120, 105, '#263238'],
-        [870, 210, 80,  '#455a64'],
-        [940, 140, 84,  '#1c262b']
-    ];
-
-    buildings.forEach(([x, topY, w, color]) => {
-        ctx.fillStyle = color;
-        ctx.fillRect(x, topY, w, 512 - topY);
-
-        ctx.fillStyle = '#fff59d';
-        for (let wy = topY + 18; wy < 495; wy += 26) {
-            for (let wx = x + 10; wx < x + w - 14; wx += 20) {
-                if ((wx + wy) % 3 !== 0) {
-                    ctx.fillRect(wx, wy, 9, 14);
-                }
-            }
-        }
-    });
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.repeat.set(4, 1);
-    tex.encoding = THREE.sRGBEncoding;
-    return tex;
-}
-
-// 3. Capa Primer Plano: Barandilla y setos de jardin
-function createForegroundTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-
-    ctx.clearRect(0, 0, 512, 256);
-
-    ctx.fillStyle = '#2e7d32';
-    ctx.fillRect(0, 135, 512, 121);
-
-    for (let x = 0; x <= 512; x += 32) {
-        ctx.fillStyle = (x % 64 === 0) ? '#388e3c' : '#2e7d32';
-        ctx.beginPath();
-        ctx.arc(x, 135, 24, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    ctx.fillStyle = '#4caf50';
-    for (let x = 16; x < 512; x += 48) {
-        ctx.beginPath();
-        ctx.arc(x, 160, 12, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 70, 512, 9);   
-    ctx.fillRect(0, 200, 512, 8);  
-
-    for (let x = 16; x < 512; x += 32) {
-        ctx.fillRect(x - 3, 70, 6, 186);
-        ctx.beginPath();
-        ctx.moveTo(x - 6, 70);
-        ctx.lineTo(x + 6, 70);
-        ctx.lineTo(x, 54);
-        ctx.closePath();
-        ctx.fill();
-    }
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.repeat.set(14, 1);
-    tex.encoding = THREE.sRGBEncoding;
-    return tex;
-}
-
-// ===== Construccion del Escenario Parallax =====
+// ===== Construccion del Escenario Parallax con tus Fotos Reales =====
 const parallaxGroup = new THREE.Group();
 const parallaxLayers = [];
+const textureLoader = new THREE.TextureLoader();
 
-function addParallaxLayer(texture, zDist, width, height, yBottom, speedFactor, renderOrder) {
-    const mat = new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
+function addParallaxLayer(imagePath, zDist, width, height, yBottom, speedFactor, renderOrder) {
+    textureLoader.load(imagePath, (texture) => {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.encoding = THREE.sRGBEncoding;
+        
+        // Si quieres repetir la foto varias veces a lo ancho para que no se estire:
+        texture.repeat.set(3, 1);
+
+        const mat = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+        const geo = new THREE.PlaneGeometry(width, height);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(0, yBottom + height / 2, zDist);
+        mesh.renderOrder = renderOrder;
+        parallaxGroup.add(mesh);
+
+        parallaxLayers.push({ texture, speedFactor });
+    }, undefined, (err) => {
+        console.error('No se pudo cargar la imagen de fondo: ' + imagePath, err);
+        showError('Falta la imagen: ' + imagePath);
     });
-    const geo = new THREE.PlaneGeometry(width, height);
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(0, yBottom + height / 2, zDist);
-    mesh.renderOrder = renderOrder;
-    parallaxGroup.add(mesh);
-    parallaxLayers.push({ texture, speedFactor });
 }
 
-addParallaxLayer(createSkyTexture(),        40, 240, 22.0, 0, 0.008, 1);
-addParallaxLayer(createCityTexture(),       20, 160,  6.5, 0, 0.03,  2);
-addParallaxLayer(createForegroundTexture(),  5,  90,  1.7, 0, 0.09,  3);
+// Cargar las 3 capas con tus archivos de fotos reales
+addParallaxLayer(PARALLAX_IMAGES.sky,        40, 240, 22.0, 0, 0.008, 1);
+addParallaxLayer(PARALLAX_IMAGES.city,       20, 160,  6.5, 0, 0.03,  2);
+addParallaxLayer(PARALLAX_IMAGES.foreground,  5,  90,  1.7, 0, 0.09,  3);
 
 scene.add(parallaxGroup);
 
@@ -250,7 +142,6 @@ loader.load('personaje.fbx', function (object) {
     const load = (url, srgb) => {
         const t = texLoader.load(url, undefined, undefined, () => {
             const fallbackUrl = url.replace('.png', '.jpg');
-            console.warn('No se encontro ' + url + ', probando ' + fallbackUrl);
             texLoader.load(fallbackUrl, fbTex => {
                 if (srgb) fbTex.encoding = THREE.sRGBEncoding;
                 character.traverse(c => {
@@ -455,7 +346,6 @@ function animate() {
         camera.lookAt(character.position.x, character.position.y + CAM_LOOK, character.position.z);
     }
 
-    // Invertido a '+' para que el paisaje se mueva en dirección contraria al muñeco
     if (moveX !== 0) {
         parallaxLayers.forEach(layer => {
             layer.texture.offset.x += moveX * layer.speedFactor;
