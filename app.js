@@ -208,7 +208,6 @@ function addParallaxLayer(texture, zDist, width, height, yBottom, speedFactor, r
     parallaxLayers.push({ texture, speedFactor });
 }
 
-// Factores de velocidad suaves y bien escalados para el efecto de profundidad
 addParallaxLayer(createSkyTexture(),        40, 240, 22.0, 0, 0.008, 1);
 addParallaxLayer(createCityTexture(),       20, 160,  6.5, 0, 0.03,  2);
 addParallaxLayer(createForegroundTexture(),  5,  90,  1.7, 0, 0.09,  3);
@@ -456,10 +455,10 @@ function animate() {
         camera.lookAt(character.position.x, character.position.y + CAM_LOOK, character.position.z);
     }
 
-    // Corregido: Se resta ( -= ) para que el fondo acompañe correctamente el sentido del movimiento
+    // Invertido a '+' para que el paisaje se mueva en dirección contraria al muñeco
     if (moveX !== 0) {
         parallaxLayers.forEach(layer => {
-            layer.texture.offset.x -= moveX * layer.speedFactor;
+            layer.texture.offset.x += moveX * layer.speedFactor;
         });
     }
 
