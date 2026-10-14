@@ -101,8 +101,8 @@ function addParallaxLayer(imagePath, zDist, width, height, yBottom, speedFactor,
 
 // Cargar las 3 capas con tus archivos de fotos reales
 addParallaxLayer(PARALLAX_IMAGES.sky,        40, 240, 22.0, 0, 0.008, 1);
-addParallaxLayer(PARALLAX_IMAGES.city,       20, 160, 6.5, -5, 0.03,  2);
-addParallaxLayer(PARALLAX_IMAGES.foreground,  10,  90,  1.7, 0, 0.09,  3);
+addParallaxLayer(PARALLAX_IMAGES.city,       15, 160, 6.5, -5, 0.03,  2);
+addParallaxLayer(PARALLAX_IMAGES.foreground,  5,  90,  1.7, 0, 0.09,  3);
 
 scene.add(parallaxGroup);
 
