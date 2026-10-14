@@ -67,7 +67,6 @@ function createSkyTexture() {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // Gradiente de cielo azul intenso a celeste en el horizonte
     const grad = ctx.createLinearGradient(0, 0, 0, 512);
     grad.addColorStop(0, '#0d47a1');
     grad.addColorStop(0.5, '#42a5f5');
@@ -75,16 +74,11 @@ function createSkyTexture() {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1024, 512);
 
-    // Nubes distribuidas en la zona media y baja para que sean visibles en camara
     ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
     const clouds = [
-        // Grupo nube 1
         [120, 260, 45], [165, 245, 60], [215, 260, 45],
-        // Grupo nube 2
         [420, 190, 50], [470, 175, 65], [525, 195, 50],
-        // Grupo nube 3
         [750, 250, 55], [810, 235, 70], [870, 255, 50],
-        // Nubes bajas suaves
         [280, 330, 35], [315, 325, 45], [620, 310, 40], [660, 305, 50]
     ];
     clouds.forEach(([x, y, r]) => {
@@ -101,17 +95,15 @@ function createSkyTexture() {
     return tex;
 }
 
-// 2. Capa Media: Ciudad de rascacielos (con fondo transparente para ver el cielo)
+// 2. Capa Media: Ciudad de rascacielos
 function createCityTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // Limpiar para asegurar transparencia en la parte superior
     ctx.clearRect(0, 0, 1024, 512);
 
-    // Edificios: [x, topY, ancho, color] (topY mas alto = edificio mas bajo, deja ver mas cielo)
     const buildings = [
         [0,   180, 95,  '#263238'],
         [85,  110, 85,  '#37474f'],
@@ -131,7 +123,6 @@ function createCityTexture() {
         ctx.fillStyle = color;
         ctx.fillRect(x, topY, w, 512 - topY);
 
-        // Ventanas iluminadas
         ctx.fillStyle = '#fff59d';
         for (let wy = topY + 18; wy < 495; wy += 26) {
             for (let wx = x + 10; wx < x + w - 14; wx += 20) {
@@ -159,7 +150,6 @@ function createForegroundTexture() {
 
     ctx.clearRect(0, 0, 512, 256);
 
-    // Setos de jardin en la mitad inferior
     ctx.fillStyle = '#2e7d32';
     ctx.fillRect(0, 135, 512, 121);
 
@@ -177,10 +167,9 @@ function createForegroundTexture() {
         ctx.fill();
     }
 
-    // Barandilla metalica
     ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 70, 512, 9);   // Barra superior
-    ctx.fillRect(0, 200, 512, 8);  // Barra inferior
+    ctx.fillRect(0, 70, 512, 9);   
+    ctx.fillRect(0, 200, 512, 8);  
 
     for (let x = 16; x < 512; x += 32) {
         ctx.fillRect(x - 3, 70, 6, 186);
@@ -204,7 +193,7 @@ function createForegroundTexture() {
 const parallaxGroup = new THREE.Group();
 const parallaxLayers = [];
 
-function addParallaxLayer(texture, zDist, width, height, yBottom, speed, renderOrder) {
+function addParallaxLayer(texture, zDist, width, height, yBottom, speedFactor, renderOrder) {
     const mat = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
@@ -213,20 +202,16 @@ function addParallaxLayer(texture, zDist, width, height, yBottom, speed, renderO
     });
     const geo = new THREE.PlaneGeometry(width, height);
     const mesh = new THREE.Mesh(geo, mat);
-    // Colocar el plano apoyado desde yBottom hacia arriba
     mesh.position.set(0, yBottom + height / 2, zDist);
     mesh.renderOrder = renderOrder;
     parallaxGroup.add(mesh);
-    parallaxLayers.push({ texture, speed });
+    parallaxLayers.push({ texture, speedFactor });
 }
 
-// Capas ajustadas al frustum de la camara para que se vean las 3 perfectamente:
-// 1. Cielo: en Z=40, altura 22 (llega muy arriba), velocidad lenta
-addParallaxLayer(createSkyTexture(),        40, 240, 22.0, 0, -0.02, 1);
-// 2. Ciudad: en Z=20, altura 6.5 (deja toda la parte superior libre para ver el cielo), velocidad media
-addParallaxLayer(createCityTexture(),       20, 160,  6.5, 0, -0.07, 2);
-// 3. Barandilla y setos: en Z=5, altura 1.7, velocidad rapida
-addParallaxLayer(createForegroundTexture(),  5,  90,  1.7, 0, -0.25, 3);
+// Factores de velocidad para cada capa
+addParallaxLayer(createSkyTexture(),        40, 240, 22.0, 0, 0.05, 1);
+addParallaxLayer(createCityTexture(),       20, 160,  6.5, 0, 0.15, 2);
+addParallaxLayer(createForegroundTexture(),  5,  90,  1.7, 0, 0.45, 3);
 
 scene.add(parallaxGroup);
 
@@ -419,10 +404,7 @@ function animate() {
     const delta = clock.getDelta();
     if (mixer) mixer.update(delta);
 
-    // Mover siempre las 3 capas del escenario de izquierda a derecha
-    parallaxLayers.forEach(layer => {
-        layer.texture.offset.x += layer.speed * delta;
-    });
+    let moveX = 0;
 
     if (character) {
         let ix = input.x + ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0);
@@ -437,8 +419,13 @@ function animate() {
             character.rotation.y += diff * Math.min(1, 10 * delta);
 
             const len = Math.hypot(dx, dz);
-            character.position.x += (dx / len) * mag * SPEED * delta;
-            character.position.z += (dz / len) * mag * SPEED * delta;
+            const stepX = (dx / len) * mag * SPEED * delta;
+            const stepZ = (dz / len) * mag * SPEED * delta;
+
+            character.position.x += stepX;
+            character.position.z += stepZ;
+            moveX = stepX; // Guardamos el movimiento lateral real
+
             dancing = false;   
             if (!jumping) playAction('walk');
         } else {
@@ -467,6 +454,14 @@ function animate() {
 
         camera.position.set(character.position.x, character.position.y + CAM_HEIGHT, character.position.z - CAM_DIST);
         camera.lookAt(character.position.x, character.position.y + CAM_LOOK, character.position.z);
+    }
+
+    // El escenario solo se mueve si el personaje se desplaza lateralmente (eje X)
+    if (moveX !== 0) {
+        parallaxLayers.forEach(layer => {
+            // El desplazamiento de la textura se vincula directamente al movimiento del personaje
+            layer.texture.offset.x -= moveX * layer.speedFactor;
+        });
     }
 
     renderer.render(scene, camera);
