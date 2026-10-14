@@ -1,8 +1,8 @@
 // ===== Configuracion =====
 const TEX = {
-    color:     'texture_pbr_20250901.jpg',
-    normal:    'texture_pbr_20250901_normal.jpg',
-    roughness: 'texture_pbr_20250901_roughness.jpg'
+    color:     'texture_pbr_20250901.png',
+    normal:    'texture_pbr_20250901_normal.png',
+    roughness: 'texture_pbr_20250901_roughness.png'
 };
 const MATERIAL_MODE = 'basic';
 const SPEED = 3.0;
@@ -67,14 +67,12 @@ function createSkyTexture() {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // Gradiente de cielo
     const grad = ctx.createLinearGradient(0, 0, 0, 512);
     grad.addColorStop(0, '#1e88e5');
     grad.addColorStop(1, '#bbdefb');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1024, 512);
 
-    // Nubes
     ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
     const clouds = [
         [150, 120, 60], [200, 110, 75], [250, 125, 55],
@@ -110,15 +108,12 @@ function createCityTexture() {
     ];
 
     buildings.forEach(([x, topY, w, color]) => {
-        // Silueta del edificio
         ctx.fillStyle = color;
         ctx.fillRect(x, topY, w, 512 - topY);
 
-        // Ventanas iluminadas
         ctx.fillStyle = '#fff59d';
         for (let wy = topY + 20; wy < 490; wy += 28) {
             for (let wx = x + 12; wx < x + w - 16; wx += 22) {
-                // Patron fijo para que sea tileable
                 if ((wx + wy) % 3 !== 0) {
                     ctx.fillRect(wx, wy, 10, 16);
                 }
@@ -141,11 +136,9 @@ function createForegroundTexture() {
     canvas.height = 256;
     const ctx = canvas.getContext('2d');
 
-    // Setos de jardin (fondo de la capa)
     ctx.fillStyle = '#2e7d32';
     ctx.fillRect(0, 120, 512, 136);
 
-    // Circulos superiores de los arbustos
     for (let x = 0; x <= 512; x += 32) {
         ctx.fillStyle = (x % 64 === 0) ? '#388e3c' : '#2e7d32';
         ctx.beginPath();
@@ -153,7 +146,6 @@ function createForegroundTexture() {
         ctx.fill();
     }
 
-    // Hojas / detalles del seto
     ctx.fillStyle = '#4caf50';
     for (let x = 16; x < 512; x += 48) {
         ctx.beginPath();
@@ -161,15 +153,12 @@ function createForegroundTexture() {
         ctx.fill();
     }
 
-    // Barandilla metalica delante del seto
     ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 55, 512, 10);  // Barra horizontal superior
-    ctx.fillRect(0, 185, 512, 8);  // Barra horizontal inferior
+    ctx.fillRect(0, 55, 512, 10);
+    ctx.fillRect(0, 185, 512, 8);
 
-    // Barrotes verticales
     for (let x = 16; x < 512; x += 32) {
         ctx.fillRect(x - 3, 55, 6, 201);
-        // Punta decorativa de la barandilla
         ctx.beginPath();
         ctx.moveTo(x - 6, 55);
         ctx.lineTo(x + 6, 55);
@@ -195,7 +184,7 @@ function addParallaxLayer(texture, zDist, width, height, yPos, speed, renderOrde
         map: texture,
         transparent: true,
         depthWrite: false,
-        side: THREE.DoubleSide // Importante para que se vea desde z negativo mirando a +z
+        side: THREE.DoubleSide
     });
     const geo = new THREE.PlaneGeometry(width, height);
     const mesh = new THREE.Mesh(geo, mat);
@@ -205,17 +194,15 @@ function addParallaxLayer(texture, zDist, width, height, yPos, speed, renderOrde
     parallaxLayers.push({ texture, speed });
 }
 
-// Orden de lejos a cerca (Z positivo esta frente a la camara)
-// Velocidad negativa en offset.x hace que la textura se mueva de izquierda a derecha
-addParallaxLayer(createSkyTexture(),        60, 260, 65, 26, -0.015, 1); // Capa 1: Cielo
-addParallaxLayer(createCityTexture(),       32, 180, 35, 16, -0.05,  2); // Capa 2: Rascacielos
-addParallaxLayer(createForegroundTexture(),  5,  90, 3.2, 1.6, -0.25, 3); // Capa 3: Barandilla y setos
+addParallaxLayer(createSkyTexture(),        60, 260, 65, 26, -0.015, 1);
+addParallaxLayer(createCityTexture(),       32, 180, 35, 16, -0.05,  2);
+addParallaxLayer(createForegroundTexture(),  5,  90, 3.2, 1.6, -0.25, 3);
 
 scene.add(parallaxGroup);
 
-// ===== Limites de movimiento para no atravesar la barandilla =====
+// ===== Limites de movimiento =====
 const WORLD_LIMIT_X = 35;
-const MAX_Z = 3.8;  // Justo antes de tocar la barandilla (que esta en Z = 5)
+const MAX_Z = 3.8;
 const MIN_Z = -15;
 
 // 3. Variables del personaje
@@ -243,13 +230,24 @@ loader.load('personaje.fbx', function (object) {
     character.position.y -= box2.min.y;
     baseY = character.position.y;
 
-    // Mirar hacia la derecha por defecto
     character.rotation.y = -Math.PI / 2;
 
     const texLoader = new THREE.TextureLoader();
+    // Carga .png y si no existe prueba automaticamente con .jpg
     const load = (url, srgb) => {
-        const t = texLoader.load(url, undefined, undefined,
-            () => console.warn('No se encontro ' + url));
+        const t = texLoader.load(url, undefined, undefined, () => {
+            const fallbackUrl = url.replace('.png', '.jpg');
+            console.warn('No se encontro ' + url + ', probando ' + fallbackUrl);
+            texLoader.load(fallbackUrl, fbTex => {
+                if (srgb) fbTex.encoding = THREE.sRGBEncoding;
+                character.traverse(c => {
+                    if (c.isMesh && c.material && c.material.map === t) {
+                        c.material.map = fbTex;
+                        c.material.needsUpdate = true;
+                    }
+                });
+            });
+        });
         if (srgb) t.encoding = THREE.sRGBEncoding;
         return t;
     };
@@ -269,6 +267,7 @@ loader.load('personaje.fbx', function (object) {
         if (MATERIAL_MODE === 'basic') {
             mat = new THREE.MeshBasicMaterial({
                 map: colorMap,
+                color: 0xffffff,
                 side: THREE.DoubleSide,
                 skinning: !!child.isSkinnedMesh
             });
@@ -417,11 +416,9 @@ function animate() {
             if (!jumping && !dancing) playAction('idle');
         }
 
-        // Restringir posicion para no traspasar la barandilla del fondo
         character.position.x = Math.max(-WORLD_LIMIT_X, Math.min(WORLD_LIMIT_X, character.position.x));
         character.position.z = Math.max(MIN_Z, Math.min(MAX_Z, character.position.z));
 
-        // Fisica vertical (salto)
         velY -= GRAVITY * delta;
         feetY += velY * delta;
         if (feetY <= 0) {
@@ -434,7 +431,6 @@ function animate() {
         }
         character.position.y = baseY + feetY;
 
-        // Mantener el fondo centrado horizontalmente con el personaje
         parallaxGroup.position.x = character.position.x;
 
         dirLight.position.set(character.position.x + 5, 20, character.position.z - 10);
