@@ -1,24 +1,29 @@
-const CACHE = 'monitor-v12';
-const FILES = ['./', './index.html', './manifest.json',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/logo.png'];
+const CACHE_NAME = 'juego-3d-v11';
+const urlsToCache = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
-self.addEventListener('install', e => {
-  // Se cachea archivo por archivo: si alguno falta (404) no se cancela la instalación
-  e.waitUntil(caches.open(CACHE).then(c =>
-    Promise.all(FILES.map(f => c.add(f).catch(() => console.warn('No se pudo cachear', f))))));
-  self.skipWaiting();
+self.addEventListener('install', event => {
+    self.skipWaiting();
+    event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
-  self.clients.claim();
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys()
+            .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+            .then(() => self.clients.claim())
+    );
 });
 
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).catch(() =>
-      e.request.mode === 'navigate' ? caches.match('./index.html') : Response.error()))
-  );
+// Network-first: siempre intenta la versión nueva; si no hay red, usa la caché
+self.addEventListener('fetch', event => {
+    if (event.request.method !== 'GET') return;
+    event.respondWith(
+        fetch(event.request)
+            .then(res => {
+                const copy = res.clone();
+                caches.open(CACHE_NAME).then(c => c.put(event.request, copy)).catch(() => {});
+                return res;
+            })
+            .catch(() => caches.match(event.request))
+    );
 });
