@@ -1,21 +1,21 @@
-// ===== Configuración =====
+// ===== Configuracion =====
 const TEX = {
     color:     'texture_pbr_20250901.png',
     normal:    'texture_pbr_20250901_normal.png',
     roughness: 'texture_pbr_20250901_roughness.png'
 };
-// 'basic'    = sin luces (test: si así se ve con color, la textura está bien)
+// 'basic'    = sin luces (test: si asi se ve con color, la textura esta bien)
 // 'standard' = con luces, normal y roughness
 // 'original' = deja el material que trae el propio FBX
 const MATERIAL_MODE = 'basic';
 const SPEED = 3.0;
 const CHAR_HEIGHT = 1.8;
-const GRAVITY = 18;          // fuerza de gravedad
-const JUMP_SPEED = 6;        // impulso del salto (altura aprox. = 6²/(2·18) = 1 unidad)
-const JUMP_ANIM_SPEED = 1.5; // velocidad de la animación de salto
-const CAM_DIST = 3.5;     // distancia detrás del personaje (menos = más cerca)
-const CAM_HEIGHT = 1.8;   // altura de la cámara
-const CAM_LOOK = 1.0;     // altura del punto al que mira (1.0 = torso)
+const GRAVITY = 18;          // Fuerza de gravedad
+const JUMP_SPEED = 6;        // Impulso del salto
+const JUMP_ANIM_SPEED = 1.5; // Velocidad de la animacion de salto
+const CAM_DIST = 3.5;     // Distancia detras del personaje
+const CAM_HEIGHT = 1.8;   // Altura de la camara
+const CAM_LOOK = 1.0;     // Altura del punto al que mira
 
 // Mostrar cualquier error en pantalla
 function showError(msg) {
@@ -27,10 +27,9 @@ function showError(msg) {
 window.addEventListener('error', e => showError('Error: ' + e.message));
 window.addEventListener('unhandledrejection', e => showError('Error: ' + e.reason));
 
-// 1. Escena, cámara y renderizador
+// 1. Escena, camara y renderizador
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-// (sin niebla: tiñe de azul y no combina con la foto de fondo)
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 3, -6);
@@ -61,9 +60,9 @@ grid.material.opacity = 0.2;
 grid.material.transparent = true;
 scene.add(grid);
 
-// ===== Escenario y obstáculos =====
-const WORLD_LIMIT = 40;        // el mapa va de -40 a +40
-const PLAYER_RADIUS = 0.4;     // "grosor" del personaje para chocar
+// ===== Escenario y obstaculos =====
+const WORLD_LIMIT = 40;        // El mapa va de -40 a +40
+const PLAYER_RADIUS = 0.4;     // "Grosor" del personaje para chocar
 const colliders = [];
 
 // Suelo
@@ -74,17 +73,57 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
-grid.position.y = 0.01;   // evita parpadeo con el suelo
+grid.position.y = 0.01;   // Evita parpadeo con el suelo
 
-// Fondo panorámico 360° (foto equirectangular)
-let sky = null;
-new THREE.TextureLoader().load('fondo1.jpg', tex => {
-    tex.encoding = THREE.sRGBEncoding;
-    const geo = new THREE.SphereGeometry(500, 60, 40);
-    geo.scale(-1, 1, 1);   // se mira desde dentro, sin imagen en espejo
-    sky = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex }));
-    scene.add(sky);
-}, undefined, () => console.warn('No se encontró fondo1.jpg'));
+// Gestor de capas Parallax
+const textureLoader = new THREE.TextureLoader();
+const parallaxLayers = [];
+
+function createParallaxLayer(imageFile, distanceZ, height, scrollSpeed) {
+    const texture = textureLoader.load(imageFile);
+    
+    // Activar repeticion infinita en el eje horizontal
+    texture.wrapS = THREE.RepeatWrapping; 
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.encoding = THREE.sRGBEncoding;
+
+    const material = new THREE.MeshBasicMaterial({ 
+        map: texture, 
+        transparent: true, 
+        depthWrite: false, // Previene problemas de superposicion Z
+        side: THREE.FrontSide
+    });
+    
+    // Crear un plano lo suficientemente ancho para cubrir los bordes de la pantalla
+    const aspect = window.innerWidth / window.innerHeight;
+    const width = height * aspect * 3; 
+    const geometry = new THREE.PlaneGeometry(width, height);
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.z = distanceZ;
+    
+    return { mesh, texture, scrollSpeed };
+}
+
+const parallaxGroup = new THREE.Group();
+
+// Capa 1: Cielo (Lejos, muy lento)
+const skyLayer = createParallaxLayer('cielo.png', 100, 80, 0.02);
+skyLayer.mesh.position.y = 20; 
+parallaxLayers.push(skyLayer);
+
+// Capa 2: Ciudad (Medio, velocidad normal)
+const cityLayer = createParallaxLayer('ciudad.png', 70, 50, 0.08);
+cityLayer.mesh.position.y = 10;
+parallaxLayers.push(cityLayer);
+
+// Capa 3: Barandilla y setos (Cerca, muy rapido)
+const foregroundLayer = createParallaxLayer('barandilla.png', 30, 20, 0.25);
+foregroundLayer.mesh.position.y = 0;
+parallaxLayers.push(foregroundLayer);
+
+parallaxLayers.forEach(layer => parallaxGroup.add(layer.mesh));
+scene.add(parallaxGroup);
 
 function addBox(x, z, w, d, h, color) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
@@ -113,19 +152,19 @@ addBox(0, -L - 0.5, 2 * L + 2, 1, 3, 0x888888);
 addBox( L + 0.5, 0, 1, 2 * L + 2, 3, 0x888888);
 addBox(-L - 0.5, 0, 1, 2 * L + 2, 3, 0x888888);
 
-// Obstáculos (lejos del punto de salida 0,0)
-addBox(5, 6, 2, 2, 0.7, 0xb5651d);      // cubo bajo
-addBox(-6, 8, 3, 1.5, 0.6, 0xb5651d);   // cubo largo bajo
-addBox(8, -4, 1.5, 1.5, 0.5, 0xc98a4b); // cubo pequeño bajo
-addBox(10, 10, 2, 2, 0.5, 0xc98a4b);    // escalón 1
-addBox(12, 10, 2, 2, 1.0, 0xb5651d);    // escalón 2 (salta desde el 1)
-addCylinder(-5, -6, 0.8, 3, 0x777788);  // columna
-addCylinder(3, -9, 0.8, 3, 0x777788);   // columna
-addCylinder(-10, 2, 1.2, 4, 0x2e7d32);  // "árbol"
-addBox(0, 14, 10, 0.6, 2.5, 0x6a7fa0);  // pared larga
-addBox(14, 4, 0.6, 8, 2.5, 0x6a7fa0);   // pared lateral
+// Obstaculos
+addBox(5, 6, 2, 2, 0.7, 0xb5651d);      
+addBox(-6, 8, 3, 1.5, 0.6, 0xb5651d);   
+addBox(8, -4, 1.5, 1.5, 0.5, 0xc98a4b); 
+addBox(10, 10, 2, 2, 0.5, 0xc98a4b);    
+addBox(12, 10, 2, 2, 1.0, 0xb5651d);    
+addCylinder(-5, -6, 0.8, 3, 0x777788);  
+addCylinder(3, -9, 0.8, 3, 0x777788);   
+addCylinder(-10, 2, 1.2, 4, 0x2e7d32);  
+addBox(0, 14, 10, 0.6, 2.5, 0x6a7fa0);  
+addBox(14, 4, 0.6, 8, 2.5, 0x6a7fa0);   
 
-// Altura del suelo bajo un punto (0 o la parte de arriba de un cubo)
+// Altura del suelo bajo un punto
 function groundHeight(x, z) {
     let h = 0;
     for (const c of colliders) {
@@ -137,9 +176,8 @@ function groundHeight(x, z) {
 
 function resolveCollisions(pos, feetY) {
     for (const c of colliders) {
-        if (feetY >= c.top - 0.05) continue;   // si los pies están por encima, no choca (se sube encima)
+        if (feetY >= c.top - 0.05) continue;   // Si los pies estan por encima, no choca
         if (c.type === 'box') {
-            // punto de la caja más cercano al personaje
             const nx = Math.max(c.x - c.hw, Math.min(pos.x, c.x + c.hw));
             const nz = Math.max(c.z - c.hd, Math.min(pos.z, c.z + c.hd));
             const dx = pos.x - nx, dz = pos.z - nz;
@@ -149,7 +187,6 @@ function resolveCollisions(pos, feetY) {
                     pos.x = nx + (dx / dist) * PLAYER_RADIUS;
                     pos.z = nz + (dz / dist) * PLAYER_RADIUS;
                 } else {
-                    // el centro quedó dentro de la caja: sacarlo por el lado más cercano
                     const px = c.hw - Math.abs(pos.x - c.x);
                     const pz = c.hd - Math.abs(pos.z - c.z);
                     if (px < pz) pos.x = c.x + (pos.x >= c.x ? 1 : -1) * (c.hw + PLAYER_RADIUS);
@@ -169,13 +206,12 @@ function resolveCollisions(pos, feetY) {
     }
 }
 
-
 // 3. Variables
 let mixer, character, current;
 let jumping = false;
-let baseY = 0;      // altura de los pies del modelo en el suelo
-let feetY = 0;      // altura actual de los pies sobre el suelo
-let velY = 0;       // velocidad vertical
+let baseY = 0;      
+let feetY = 0;      
+let velY = 0;       
 let onGround = true;
 let dancing = false;
 const actions = {};
@@ -197,7 +233,7 @@ loader.load('personaje.fbx', function (object) {
     const texLoader = new THREE.TextureLoader();
     const load = (url, srgb) => {
         const t = texLoader.load(url, undefined, undefined,
-            () => console.warn('No se encontró ' + url));
+            () => console.warn('No se encontro ' + url));
         if (srgb) t.encoding = THREE.sRGBEncoding;
         return t;
     };
@@ -210,11 +246,6 @@ loader.load('personaje.fbx', function (object) {
         child.castShadow = true;
         child.receiveShadow = true;
         child.frustumCulled = false;
-
-        console.log('Mesh:', child.name,
-            '| UV:', !!child.geometry.attributes.uv,
-            '| normales:', !!child.geometry.attributes.normal,
-            '| skinned:', !!child.isSkinnedMesh);
 
         if (MATERIAL_MODE === 'original') return;
 
@@ -248,7 +279,6 @@ loader.load('personaje.fbx', function (object) {
     loadAnim('jump', 'Jump.fbx');
     loadAnim('dance', 'Dance.fbx');
 
-    // Al terminar el salto, se vuelve a idle/walk
     mixer.addEventListener('finished', e => {
         if (e.action === actions.jump) jumping = false;
     });
@@ -262,22 +292,22 @@ function loadAnim(name, file) {
         const clip = obj.animations[0];
         if (!clip) return;
 
-        // Quitar el avance de la cadera (X y Z) para que la animación sea "in place"
+        // Quitar el avance de la cadera (X y Z) para que la animacion sea "in place"
         clip.tracks.forEach(track => {
             if (track.name.toLowerCase().endsWith('hips.position')) {
                 const v = track.values;
                 const x0 = v[0], z0 = v[2];
                 for (let i = 0; i < v.length; i += 3) {
-                    v[i]     = x0;   // X fija
-                    v[i + 2] = z0;   // Z fija
-                    if (name === 'jump') v[i + 1] = v[1];   // la altura del salto la pone la física
+                    v[i]     = x0;   
+                    v[i + 2] = z0;   
+                    if (name === 'jump') v[i + 1] = v[1];   
                 }
             }
         });
 
         actions[name] = mixer.clipAction(clip);
         if (name === 'jump') {
-            actions[name].setLoop(THREE.LoopOnce, 1);   // se reproduce una sola vez
+            actions[name].setLoop(THREE.LoopOnce, 1);   
             actions[name].clampWhenFinished = true;
             actions[name].timeScale = JUMP_ANIM_SPEED;
         }
@@ -345,6 +375,15 @@ function animate() {
     const delta = clock.getDelta();
     if (mixer) mixer.update(delta);
 
+    // Actualizar el offset de las texturas para el efecto de movimiento
+    parallaxLayers.forEach(layer => {
+        layer.texture.offset.x -= layer.scrollSpeed * delta; 
+    });
+
+    // Enganchar el grupo parallax a la camara
+    parallaxGroup.position.x = camera.position.x;
+    parallaxGroup.position.z = camera.position.z;
+
     if (character) {
         let ix = input.x + ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0);
         let iy = input.y + ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0);
@@ -360,13 +399,13 @@ function animate() {
             const len = Math.hypot(dx, dz);
             character.position.x += (dx / len) * mag * SPEED * delta;
             character.position.z += (dz / len) * mag * SPEED * delta;
-            dancing = false;   // moverse corta el baile
+            dancing = false;   
             if (!jumping) playAction('walk');
         } else {
             if (!jumping && !dancing) playAction('idle');
         }
 
-        // Física vertical: gravedad, salto y aterrizaje sobre cubos
+        // Fisica vertical
         velY -= GRAVITY * delta;
         feetY += velY * delta;
         resolveCollisions(character.position, feetY);
@@ -374,22 +413,19 @@ function animate() {
         if (feetY <= gh) {
             feetY = gh;
             velY = 0;
-            if (!onGround) jumping = false;   // al aterrizar termina el salto
+            if (!onGround) jumping = false;   
             onGround = true;
         } else {
             onGround = false;
         }
         character.position.y = baseY + feetY;
 
-        // La luz (y sus sombras) sigue al personaje
         dirLight.position.set(character.position.x + 5, 20, character.position.z + 10);
         dirLight.target.position.copy(character.position);
 
         camera.position.set(character.position.x, character.position.y + CAM_HEIGHT, character.position.z - CAM_DIST);
         camera.lookAt(character.position.x, character.position.y + CAM_LOOK, character.position.z);
     }
-
-    if (sky) sky.position.copy(camera.position);   // el horizonte siempre queda lejos
 
     renderer.render(scene, camera);
 }
@@ -398,5 +434,8 @@ animate();
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    
+    // Si cambias el tamano de la ventana, es buena idea actualizar el plano de fondo
+    // pero por ahora solo ajustamos el renderizador principal
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
