@@ -28,7 +28,7 @@ window.addEventListener('unhandledrejection', e => showError('Error: ' + e.reaso
 
 // 1. Escena, camara y renderizador
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x64b5f6);
+scene.background = new THREE.Color(0x1e88e5);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 3, -6);
@@ -67,17 +67,25 @@ function createSkyTexture() {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
+    // Gradiente de cielo azul intenso a celeste en el horizonte
     const grad = ctx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, '#1e88e5');
-    grad.addColorStop(1, '#bbdefb');
+    grad.addColorStop(0, '#0d47a1');
+    grad.addColorStop(0.5, '#42a5f5');
+    grad.addColorStop(1, '#e3f2fd');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1024, 512);
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    // Nubes distribuidas en la zona media y baja para que sean visibles en camara
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
     const clouds = [
-        [150, 120, 60], [200, 110, 75], [250, 125, 55],
-        [550, 180, 50], [600, 165, 65], [650, 180, 50],
-        [850, 90, 70],  [910, 80, 80],  [960, 100, 60]
+        // Grupo nube 1
+        [120, 260, 45], [165, 245, 60], [215, 260, 45],
+        // Grupo nube 2
+        [420, 190, 50], [470, 175, 65], [525, 195, 50],
+        // Grupo nube 3
+        [750, 250, 55], [810, 235, 70], [870, 255, 50],
+        // Nubes bajas suaves
+        [280, 330, 35], [315, 325, 45], [620, 310, 40], [660, 305, 50]
     ];
     clouds.forEach(([x, y, r]) => {
         ctx.beginPath();
@@ -93,29 +101,42 @@ function createSkyTexture() {
     return tex;
 }
 
-// 2. Capa Media: Ciudad de rascacielos
+// 2. Capa Media: Ciudad de rascacielos (con fondo transparente para ver el cielo)
 function createCityTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
+    // Limpiar para asegurar transparencia en la parte superior
+    ctx.clearRect(0, 0, 1024, 512);
+
+    // Edificios: [x, topY, ancho, color] (topY mas alto = edificio mas bajo, deja ver mas cielo)
     const buildings = [
-        [0, 180, 110, '#263238'], [100, 100, 95, '#37474f'], [185, 210, 85, '#455a64'],
-        [260, 70, 120, '#1c262b'], [370, 160, 90, '#37474f'], [450, 90, 110, '#263238'],
-        [550, 190, 100, '#455a64'], [640, 60, 130, '#1c262b'], [760, 150, 95, '#37474f'],
-        [845, 110, 105, '#263238'], [940, 170, 84, '#455a64']
+        [0,   180, 95,  '#263238'],
+        [85,  110, 85,  '#37474f'],
+        [160, 230, 90,  '#455a64'],
+        [240, 80,  110, '#1c262b'],
+        [340, 190, 85,  '#37474f'],
+        [415, 130, 100, '#263238'],
+        [505, 240, 95,  '#455a64'],
+        [590, 70,  115, '#1c262b'],
+        [695, 170, 90,  '#37474f'],
+        [775, 120, 105, '#263238'],
+        [870, 210, 80,  '#455a64'],
+        [940, 140, 84,  '#1c262b']
     ];
 
     buildings.forEach(([x, topY, w, color]) => {
         ctx.fillStyle = color;
         ctx.fillRect(x, topY, w, 512 - topY);
 
+        // Ventanas iluminadas
         ctx.fillStyle = '#fff59d';
-        for (let wy = topY + 20; wy < 490; wy += 28) {
-            for (let wx = x + 12; wx < x + w - 16; wx += 22) {
+        for (let wy = topY + 18; wy < 495; wy += 26) {
+            for (let wx = x + 10; wx < x + w - 14; wx += 20) {
                 if ((wx + wy) % 3 !== 0) {
-                    ctx.fillRect(wx, wy, 10, 16);
+                    ctx.fillRect(wx, wy, 9, 14);
                 }
             }
         }
@@ -136,33 +157,37 @@ function createForegroundTexture() {
     canvas.height = 256;
     const ctx = canvas.getContext('2d');
 
+    ctx.clearRect(0, 0, 512, 256);
+
+    // Setos de jardin en la mitad inferior
     ctx.fillStyle = '#2e7d32';
-    ctx.fillRect(0, 120, 512, 136);
+    ctx.fillRect(0, 135, 512, 121);
 
     for (let x = 0; x <= 512; x += 32) {
         ctx.fillStyle = (x % 64 === 0) ? '#388e3c' : '#2e7d32';
         ctx.beginPath();
-        ctx.arc(x, 120, 26, 0, Math.PI * 2);
+        ctx.arc(x, 135, 24, 0, Math.PI * 2);
         ctx.fill();
     }
 
     ctx.fillStyle = '#4caf50';
     for (let x = 16; x < 512; x += 48) {
         ctx.beginPath();
-        ctx.arc(x, 145, 14, 0, Math.PI * 2);
+        ctx.arc(x, 160, 12, 0, Math.PI * 2);
         ctx.fill();
     }
 
+    // Barandilla metalica
     ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 55, 512, 10);
-    ctx.fillRect(0, 185, 512, 8);
+    ctx.fillRect(0, 70, 512, 9);   // Barra superior
+    ctx.fillRect(0, 200, 512, 8);  // Barra inferior
 
     for (let x = 16; x < 512; x += 32) {
-        ctx.fillRect(x - 3, 55, 6, 201);
+        ctx.fillRect(x - 3, 70, 6, 186);
         ctx.beginPath();
-        ctx.moveTo(x - 6, 55);
-        ctx.lineTo(x + 6, 55);
-        ctx.lineTo(x, 40);
+        ctx.moveTo(x - 6, 70);
+        ctx.lineTo(x + 6, 70);
+        ctx.lineTo(x, 54);
         ctx.closePath();
         ctx.fill();
     }
@@ -170,7 +195,7 @@ function createForegroundTexture() {
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.repeat.set(12, 1);
+    tex.repeat.set(14, 1);
     tex.encoding = THREE.sRGBEncoding;
     return tex;
 }
@@ -179,7 +204,7 @@ function createForegroundTexture() {
 const parallaxGroup = new THREE.Group();
 const parallaxLayers = [];
 
-function addParallaxLayer(texture, zDist, width, height, yPos, speed, renderOrder) {
+function addParallaxLayer(texture, zDist, width, height, yBottom, speed, renderOrder) {
     const mat = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
@@ -188,15 +213,20 @@ function addParallaxLayer(texture, zDist, width, height, yPos, speed, renderOrde
     });
     const geo = new THREE.PlaneGeometry(width, height);
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(0, yPos, zDist);
+    // Colocar el plano apoyado desde yBottom hacia arriba
+    mesh.position.set(0, yBottom + height / 2, zDist);
     mesh.renderOrder = renderOrder;
     parallaxGroup.add(mesh);
     parallaxLayers.push({ texture, speed });
 }
 
-addParallaxLayer(createSkyTexture(),        60, 260, 65, 26, -0.015, 1);
-addParallaxLayer(createCityTexture(),       32, 180, 35, 16, -0.05,  2);
-addParallaxLayer(createForegroundTexture(),  5,  90, 3.2, 1.6, -0.25, 3);
+// Capas ajustadas al frustum de la camara para que se vean las 3 perfectamente:
+// 1. Cielo: en Z=40, altura 22 (llega muy arriba), velocidad lenta
+addParallaxLayer(createSkyTexture(),        40, 240, 22.0, 0, -0.02, 1);
+// 2. Ciudad: en Z=20, altura 6.5 (deja toda la parte superior libre para ver el cielo), velocidad media
+addParallaxLayer(createCityTexture(),       20, 160,  6.5, 0, -0.07, 2);
+// 3. Barandilla y setos: en Z=5, altura 1.7, velocidad rapida
+addParallaxLayer(createForegroundTexture(),  5,  90,  1.7, 0, -0.25, 3);
 
 scene.add(parallaxGroup);
 
@@ -233,7 +263,6 @@ loader.load('personaje.fbx', function (object) {
     character.rotation.y = -Math.PI / 2;
 
     const texLoader = new THREE.TextureLoader();
-    // Carga .png y si no existe prueba automaticamente con .jpg
     const load = (url, srgb) => {
         const t = texLoader.load(url, undefined, undefined, () => {
             const fallbackUrl = url.replace('.png', '.jpg');
