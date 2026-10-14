@@ -8,8 +8,8 @@ const TEX = {
 // Nombres de tus nuevas fotos reales para el fondo (ajusta la extension .jpg o .png segun corresponda)
 const PARALLAX_IMAGES = {
     sky: 'cielo.png',
-    city: 'ciudad.png',
-    foreground: 'barandilla.png'
+    city: 'ciudad2.png',
+    foreground: 'barandilla2.png'
 };
 
 const MATERIAL_MODE = 'basic';
